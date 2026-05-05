@@ -67,6 +67,7 @@ struct IconEnvironmentDataBlock : ExtraDataBase {
 struct KnownFolderDataBlock : ExtraDataBase {
     std::string knownFolderId;
     uint32_t offset = 0;
+    std::string knownFolderName;
     std::string GetTypeName() const override { return "KnownFolderDataBlock"; }
 };
 

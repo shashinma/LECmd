@@ -134,6 +134,11 @@ std::string DateTimeUtils::FormatMicroseconds(const Timestamp& ts) {
     return ss.str();
 }
 
+std::string DateTimeUtils::FormatMicroseconds(std::time_t ts) {
+    if (ts == 0) return "";
+    return FormatMicroseconds(FromUnixSeconds(ts));
+}
+
 DateTimeUtils::Timestamp DateTimeUtils::Now() {
     return std::chrono::system_clock::now();
 }

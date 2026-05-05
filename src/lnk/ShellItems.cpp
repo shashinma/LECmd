@@ -22,6 +22,16 @@ std::string ShellBag::GetTypeName() const {
     }
 }
 
+std::string Beef0004Block::GetOsHint() const {
+    switch (identifier) {
+        case 0x14: return "Windows XP, 2003";
+        case 0x26: return "Windows Vista";
+        case 0x2a: return "Windows 2008, 7, 8";
+        case 0x2e: return "Windows 8.1, 10";
+        default: return "Unknown operating system";
+    }
+}
+
 std::string ParseShellBagAbsolutePath(const std::vector<std::shared_ptr<ShellBag>>& bags) {
     std::string path;
     for (const auto& bag : bags) {

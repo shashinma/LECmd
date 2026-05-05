@@ -43,6 +43,6 @@ private:
     std::string EscapeField(const std::string& field);
 };
 
-CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& dateFormat, class MacVendorLookup* macLookup);
+CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& dateFormat, class MacVendorLookup* macLookup, bool useMicroseconds = false);
 
 } // namespace lecmd

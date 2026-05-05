@@ -64,31 +64,37 @@ bool CsvWriter::Write(const std::string& path, const std::vector<CsvOut>& entrie
     return true;
 }
 
-static std::string FormatTime(std::time_t t, const std::string& fmt) {
+static std::string FormatTime(std::time_t t, const std::string& fmt, bool useMicroseconds) {
     if (t == 0) return "";
+    if (useMicroseconds) {
+        return DateTimeUtils::FormatMicroseconds(t);
+    }
     return DateTimeUtils::Format(t, fmt);
 }
 
-static std::string FormatFileTime(uint64_t ft, const std::string& fmt) {
+static std::string FormatFileTime(uint64_t ft, const std::string& fmt, bool useMicroseconds) {
     if (ft == 0 || ft == 0xFFFFFFFFFFFFFFFEULL) return "";
     // FILETIME to time_t
     const uint64_t EPOCH_DIFF = 116444736000000000ULL;
     if (ft < EPOCH_DIFF) return "";
     std::time_t t = static_cast<std::time_t>((ft - EPOCH_DIFF) / 10000000);
+    if (useMicroseconds) {
+        return DateTimeUtils::FormatMicroseconds(t);
+    }
     return DateTimeUtils::Format(t, fmt);
 }
 
-CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& dateFormat, MacVendorLookup* macLookup) {
+CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& dateFormat, MacVendorLookup* macLookup, bool useMicroseconds) {
     CsvOut out;
     if (!lnk) return out;
 
     out.sourceFile = lnk->sourceFile;
-    out.sourceCreated = FormatTime(lnk->sourceCreated.value_or(0), dateFormat);
-    out.sourceModified = FormatTime(lnk->sourceModified.value_or(0), dateFormat);
-    out.sourceAccessed = FormatTime(lnk->sourceAccessed.value_or(0), dateFormat);
-    out.targetCreated = FormatFileTime(lnk->header.targetCreationTime, dateFormat);
-    out.targetModified = FormatFileTime(lnk->header.targetModificationTime, dateFormat);
-    out.targetAccessed = FormatFileTime(lnk->header.targetAccessTime, dateFormat);
+    out.sourceCreated = FormatTime(lnk->sourceCreated.value_or(0), dateFormat, useMicroseconds);
+    out.sourceModified = FormatTime(lnk->sourceModified.value_or(0), dateFormat, useMicroseconds);
+    out.sourceAccessed = FormatTime(lnk->sourceAccessed.value_or(0), dateFormat, useMicroseconds);
+    out.targetCreated = FormatFileTime(lnk->header.targetCreationTime, dateFormat, useMicroseconds);
+    out.targetModified = FormatFileTime(lnk->header.targetModificationTime, dateFormat, useMicroseconds);
+    out.targetAccessed = FormatFileTime(lnk->header.targetAccessTime, dateFormat, useMicroseconds);
     out.fileSize = lnk->header.fileSize;
     out.relativePath = lnk->relativePath;
     out.workingDirectory = lnk->workingDirectory;
@@ -151,7 +157,7 @@ CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& date
         if (macLookup) {
             out.macVendor = macLookup->Lookup(tracker->macAddress);
         }
-        out.trackerCreatedOn = FormatTime(tracker->creationTime.value_or(0), dateFormat);
+        out.trackerCreatedOn = FormatTime(tracker->creationTime.value_or(0), dateFormat, useMicroseconds);
     }
 
     return out;

@@ -23,16 +23,19 @@ struct Beef0003Block : ExtensionBlock {
 struct MFTInformation {
     std::optional<uint64_t> mftEntryNumber;
     std::optional<uint64_t> mftSequenceNumber;
+    std::string note;
 };
 
 struct Beef0004Block : ExtensionBlock {
     uint16_t version = 0;
+    int16_t identifier = 0;
     std::string longName;
     std::string localisedName;
     std::optional<std::time_t> createdOnTime;
     std::optional<std::time_t> lastAccessTime;
     MFTInformation mftInfo;
     std::string GetTypeName() const override { return "Beef0004"; }
+    std::string GetOsHint() const;
 };
 
 struct Beef001aBlock : ExtensionBlock {

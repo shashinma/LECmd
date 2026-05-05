@@ -20,10 +20,13 @@
 using namespace lecmd;
 
 static std::string g_dateFormat = "%Y-%m-%d %H:%M:%S";
-static std::string g_preciseFormat = "%Y-%m-%d %H:%M:%S"; // precise microseconds handled separately
+static bool g_useMicroseconds = false;
 
 static std::string FormatTime(std::time_t t) {
     if (t == 0) return "";
+    if (g_useMicroseconds) {
+        return DateTimeUtils::FormatMicroseconds(t);
+    }
     return DateTimeUtils::Format(t, g_dateFormat);
 }
 
@@ -32,6 +35,9 @@ static std::string FormatFileTime(uint64_t ft) {
     const uint64_t EPOCH_DIFF = 116444736000000000ULL;
     if (ft < EPOCH_DIFF) return "";
     std::time_t t = static_cast<std::time_t>((ft - EPOCH_DIFF) / 10000000);
+    if (g_useMicroseconds) {
+        return DateTimeUtils::FormatMicroseconds(t);
+    }
     return DateTimeUtils::Format(t, g_dateFormat);
 }
 
@@ -40,6 +46,47 @@ static std::string GetVersionString() {
            "Author: shashinma\n"
            "https://github.com/shashinma\n"
            "https://github.com/Artifactum";
+}
+
+static void DumpExtensionBlockDetails(const std::shared_ptr<ExtensionBlock>& eb, int blockNum) {
+    spdlog::info("    --------- Block {} ({}) ---------", blockNum, eb->GetTypeName());
+    if (auto b4 = std::dynamic_pointer_cast<Beef0004Block>(eb)) {
+        spdlog::info("    Long name: {}", b4->longName);
+        if (!b4->localisedName.empty()) {
+            spdlog::info("    Localized name: {}", b4->localisedName);
+        }
+        if (b4->createdOnTime.has_value() && b4->createdOnTime.value() != 0) {
+            spdlog::info("    Created:     {}", DateTimeUtils::Format(b4->createdOnTime.value(), "%Y-%m-%d %H:%M:%S"));
+        } else {
+            spdlog::info("    Created:");
+        }
+        if (b4->lastAccessTime.has_value() && b4->lastAccessTime.value() != 0) {
+            spdlog::info("    Last access: {}", DateTimeUtils::Format(b4->lastAccessTime.value(), "%Y-%m-%d %H:%M:%S"));
+        } else {
+            spdlog::info("    Last access: ");
+        }
+        if (b4->mftInfo.mftEntryNumber.has_value() && b4->mftInfo.mftEntryNumber.value() > 0) {
+            spdlog::info("    MFT entry/sequence #: {}/{} (0x{:X}/0x{:X})",
+                b4->mftInfo.mftEntryNumber.value(),
+                b4->mftInfo.mftSequenceNumber.value_or(0),
+                b4->mftInfo.mftEntryNumber.value(),
+                b4->mftInfo.mftSequenceNumber.value_or(0));
+        }
+        spdlog::info("    Identifier: 0x{:X} ({})", b4->identifier, b4->GetOsHint());
+        if (!b4->mftInfo.note.empty()) {
+            spdlog::info("    File system hint: {}", b4->mftInfo.note);
+        }
+    } else if (auto b25 = std::dynamic_pointer_cast<Beef0025Block>(eb)) {
+        std::string ft1 = b25->fileTime1.has_value() ? DateTimeUtils::Format(b25->fileTime1.value(), "%Y-%m-%d %H:%M:%S") : "";
+        std::string ft2 = b25->fileTime2.has_value() ? DateTimeUtils::Format(b25->fileTime2.value(), "%Y-%m-%d %H:%M:%S") : "";
+        spdlog::info("    Filetime 1: {}, Filetime 2: {}", ft1, ft2);
+    } else if (auto b3 = std::dynamic_pointer_cast<Beef0003Block>(eb)) {
+        spdlog::info("    GUID: {}", b3->guid1);
+    } else if (auto b1a = std::dynamic_pointer_cast<Beef001aBlock>(eb)) {
+        spdlog::info("    File document type: {}", b1a->fileDocumentTypeString);
+    } else {
+        spdlog::info("    {}", eb->GetTypeName());
+    }
 }
 
 static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool neb, const MacVendorLookup& macLookup) {
@@ -87,7 +134,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
     if (lnk->header.HasFlag(LnkHeader::HasLinkInfo) && lnk->linkInfo) {
         std::cout << "\n";
         spdlog::info("--- Link information ---");
-        spdlog::info("Flags: {}", lnk->linkInfo->flags);
+        spdlog::info("Flags: {}", lnk->linkInfo->GetFlagsString());
 
         if (lnk->linkInfo->volumeInfo) {
             std::cout << "\n";
@@ -133,7 +180,32 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
         for (const auto& bag : lnk->targetIDs) {
             std::string val = bag->value.empty() ? "(None)" : bag->value;
             spdlog::info("  -{} ==> {}", bag->friendlyName, val);
-            std::cout << "\n";
+
+            // Detailed output for directory/file/delegate items with extension blocks
+            bool hasDetails = (bag->type == 0x31 || bag->type == 0x32 || bag->type == 0x36 || bag->type == 0x74);
+            if (hasDetails) {
+                if (!bag->shortName.empty()) {
+                    spdlog::info("    Short name: {}", bag->shortName);
+                }
+                if (bag->lastModificationTime.has_value() && bag->lastModificationTime.value() != 0) {
+                    spdlog::info("    Modified:    {}", DateTimeUtils::Format(bag->lastModificationTime.value(), "%Y-%m-%d %H:%M:%S"));
+                } else {
+                    spdlog::info("    Modified:");
+                }
+
+                if (!bag->extensionBlocks.empty()) {
+                    spdlog::info("    Extension block count: {}", bag->extensionBlocks.size());
+                    std::cout << "\n";
+                    int extNum = 0;
+                    for (const auto& eb : bag->extensionBlocks) {
+                        DumpExtensionBlockDetails(eb, extNum);
+                        extNum++;
+                    }
+                }
+                std::cout << "\n";
+            } else {
+                std::cout << "\n";
+            }
         }
         spdlog::info("--- End Target ID information ---");
     }
@@ -171,9 +243,82 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
             } else if (auto console = std::dynamic_pointer_cast<ConsoleDataBlock>(eb)) {
                 spdlog::info(">> Console data block");
                 spdlog::info("   Fill Attributes: {}", console->fillAttributes);
-                spdlog::info("   Is Full Screen: {}", console->fullScreen);
+                spdlog::info("   Popup Attributes: {}", console->popupFillAttributes);
+                spdlog::info("   Buffer Size (Width x Height): {} x {}", console->screenWidthBufferSize, console->screenHeightBufferSize);
+                spdlog::info("   Window Size (Width x Height): {} x {}", console->windowWidth, console->windowHeight);
+                spdlog::info("   Origin (X/Y): {}/{}", console->windowOriginX, console->windowOriginY);
+                spdlog::info("   Font Size: {}", console->fontSize);
+                spdlog::info("   Is Bold: {}", console->fontWeight >= 700 ? "True" : "False");
+                spdlog::info("   Face Name: {}", console->faceName);
+                spdlog::info("   Cursor Size: {}", console->cursorSize);
+                spdlog::info("   Is Full Screen: {}", console->fullScreen != 0 ? "True" : "False");
+                spdlog::info("   Is Quick Edit: {}", console->quickEdit != 0 ? "True" : "False");
+                spdlog::info("   Is Insert Mode: {}", console->insertMode != 0 ? "True" : "False");
+                spdlog::info("   Is Auto Positioned: {}", console->autoPosition != 0 ? "True" : "False");
+                spdlog::info("   History Buffer Size: {}", console->historyBufferSize);
+                spdlog::info("   History Buffer Count: {}", console->numberOfHistoryBuffers);
+                spdlog::info("   History Duplicates Allowed: {}", console->historyNoDup != 0 ? "True" : "False");
+                std::cout << "\n";
+            } else if (auto cfe = std::dynamic_pointer_cast<ConsoleFEDataBlock>(eb)) {
+                spdlog::info(">> Console FE data block");
+                spdlog::info("   Code page: {}", cfe->codePage);
+                std::cout << "\n";
+            } else if (auto darwin = std::dynamic_pointer_cast<DarwinDataBlock>(eb)) {
+                spdlog::info(">> Darwin data block");
+                spdlog::info("   Application ID: {}", darwin->applicationIdentifierUnicode);
+                spdlog::info("   Product code: {}", darwin->productCode);
+                spdlog::info("   Feature name: {}", darwin->featureName);
+                spdlog::info("   Component ID: {}", darwin->componentId);
+                std::cout << "\n";
+            } else if (auto env = std::dynamic_pointer_cast<EnvironmentVariableDataBlock>(eb)) {
+                spdlog::info(">> Environment variable data block");
+                spdlog::info("   Environment variables: {}", env->environmentVariablesUnicode);
+                std::cout << "\n";
+            } else if (auto iconEnv = std::dynamic_pointer_cast<IconEnvironmentDataBlock>(eb)) {
+                spdlog::info(">> Icon environment data block");
+                spdlog::info("   Icon path: {}", iconEnv->iconPathUni);
+                std::cout << "\n";
+            } else if (auto kf = std::dynamic_pointer_cast<KnownFolderDataBlock>(eb)) {
+                spdlog::info(">> Known folder data block");
+                if (!kf->knownFolderName.empty()) {
+                    spdlog::info("   Known folder GUID: {} ==> {}", kf->knownFolderId, kf->knownFolderName);
+                } else {
+                    spdlog::info("   Known folder GUID: {}", kf->knownFolderId);
+                }
+                std::cout << "\n";
+            } else if (auto ps = std::dynamic_pointer_cast<PropertyStoreDataBlock>(eb)) {
+                spdlog::info(">> Property store data block");
+                if (ps->properties.empty()) {
+                    spdlog::info("   (Property store not parsed)");
+                } else {
+                    for (const auto& prop : ps->properties) {
+                        spdlog::info("   {}\\{} {} ==> {}", std::get<0>(prop), std::get<1>(prop), std::get<2>(prop), std::get<3>(prop));
+                    }
+                }
+                std::cout << "\n";
+            } else if (auto shim = std::dynamic_pointer_cast<ShimDataBlock>(eb)) {
+                spdlog::info(">> Shimcache data block");
+                spdlog::info("   Layer name: {}", shim->layerName);
+                std::cout << "\n";
+            } else if (auto sf = std::dynamic_pointer_cast<SpecialFolderDataBlock>(eb)) {
+                spdlog::info(">> Special folder data block");
+                spdlog::info("   Special Folder ID: {}", sf->specialFolderId);
+                std::cout << "\n";
+            } else if (auto vista = std::dynamic_pointer_cast<VistaAndAboveIdListDataBlock>(eb)) {
+                spdlog::info(">> Vista and above ID List data block");
+                for (const auto& bag : vista->targetIDs) {
+                    std::string val = bag->value.empty() ? "(None)" : bag->value;
+                    spdlog::info("   {} ==> {}", bag->friendlyName, val);
+                }
+                std::cout << "\n";
+            } else if (auto dmg = std::dynamic_pointer_cast<DamagedDataBlock>(eb)) {
+                spdlog::info(">> Damaged data block");
+                spdlog::info("   Original Signature: {}", dmg->originalSignature);
+                spdlog::info("   Error Message: {}", dmg->errorMessage);
+                std::cout << "\n";
             } else {
                 spdlog::info(">> {}", eb->GetTypeName());
+                std::cout << "\n";
             }
         }
     }
@@ -234,7 +379,7 @@ int main(int argc, char** argv) {
 
     g_dateFormat = dt;
     if (mp) {
-        g_dateFormat = g_preciseFormat;
+        g_useMicroseconds = true;
     }
 
     if (filePath.empty() && dirPath.empty()) {
@@ -268,7 +413,11 @@ int main(int argc, char** argv) {
     std::string tsStr = tsSs.str();
 
     if (!filePath.empty()) {
+        auto start = std::chrono::steady_clock::now();
         auto lnk = LnkFile::Load(filePath, cp);
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+
         if (lnk) {
             if (!removableOnly || (lnk->linkInfo && lnk->linkInfo->volumeInfo && lnk->linkInfo->volumeInfo->driveType == VolumeInfo::DriveRemovable)) {
                 processedFiles.push_back(lnk);
@@ -279,6 +428,12 @@ int main(int argc, char** argv) {
         } else {
             failedFiles.push_back(filePath);
             spdlog::error("Error opening {}", filePath);
+        }
+
+        if (!quiet) {
+            std::cout << "\n";
+            spdlog::info("---------- Processed {} in {:.8f} seconds ----------", filePath, elapsed);
+            std::cout << "\n";
         }
     } else {
         spdlog::info("Looking for lnk files in {}", dirPath);
@@ -315,7 +470,11 @@ int main(int argc, char** argv) {
         std::cout << "\n";
 
         for (const auto& f : lnkFiles) {
+            auto start = std::chrono::steady_clock::now();
             auto lnk = LnkFile::Load(f, cp);
+            auto end = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+
             if (lnk) {
                 if (!removableOnly || (lnk->linkInfo && lnk->linkInfo->volumeInfo && lnk->linkInfo->volumeInfo->driveType == VolumeInfo::DriveRemovable)) {
                     processedFiles.push_back(lnk);
@@ -326,6 +485,12 @@ int main(int argc, char** argv) {
             } else {
                 failedFiles.push_back(f);
                 spdlog::error("Error opening {}", f);
+            }
+
+            if (!quiet) {
+                std::cout << "\n";
+                spdlog::info("---------- Processed {} in {:.8f} seconds ----------", f, elapsed);
+                std::cout << "\n";
             }
         }
 
@@ -347,7 +512,7 @@ int main(int argc, char** argv) {
     // Convert to CsvOut
     std::vector<CsvOut> csvEntries;
     for (const auto& lnk : processedFiles) {
-        csvEntries.push_back(GetCsvFormat(lnk, g_dateFormat, &macLookup));
+        csvEntries.push_back(GetCsvFormat(lnk, g_dateFormat, &macLookup, g_useMicroseconds));
     }
 
     // CSV output

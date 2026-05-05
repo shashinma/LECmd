@@ -39,6 +39,8 @@ struct LinkInfo {
 
     bool HasVolumeID() const { return (flags & 0x0001) != 0; }
     bool HasNetworkShare() const { return (flags & 0x0002) != 0; }
+
+    std::string GetFlagsString() const;
 };
 
 } // namespace lecmd

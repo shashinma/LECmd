@@ -79,4 +79,13 @@ std::string NetworkShareInfo::GetShareFlagsString() const {
     return res.empty() ? "None" : res;
 }
 
+std::string LinkInfo::GetFlagsString() const {
+    switch (flags) {
+        case 0x1: return "VolumeIdAndLocalBasePath";
+        case 0x2: return "CommonNetworkRelativeLinkAndPathSuffix";
+        case 0x3: return "VolumeIdAndLocalBasePath, CommonNetworkRelativeLinkAndPathSuffix";
+        default: return "Unknown (0x" + std::to_string(flags) + ")";
+    }
+}
+
 } // namespace lecmd

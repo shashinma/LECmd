@@ -505,6 +505,104 @@ void LnkFile::ParseExtensionBlocks(ShellBag* bag, const std::vector<uint8_t>& ra
     }
 }
 
+static std::string GetKnownFolderName(const std::string& guid) {
+    static const std::unordered_map<std::string, std::string> kf = {
+        {"de61d971-5ebc-4f02-a3a9-6c82895e5c04", "AddNewPrograms"},
+        {"724ef170-a42d-4fef-9f26-b60e846fba4f", "AdminTools"},
+        {"a305ce99-f527-492b-8b1a-7e76fa98d6e4", "AppDataLow"},
+        {"3e645c70-997d-48c0-99f4-96692094207f", "AppUpdates"},
+        {"a4115719-d62e-491d-aa7c-e74b8be3b067", "CDBurning"},
+        {"df7266ac-9274-4867-8d55-3bd661de872d", "ChangeRemovePrograms"},
+        {"d0384e7d-bac3-4797-8f14-cba229b392b5", "CommonAdminTools"},
+        {"c1bae2d0-10df-4334-bedd-7aa20b227a9d", "CommonOEMLinks"},
+        {"5399e694-6ce5-4d6c-8fce-1d8870fdcba0", "CommonPrograms"},
+        {"dfdf76a2-c82a-4d63-906a-5644ac457385", "CommonStartMenu"},
+        {"de92c1c7-837f-4f69-a3bb-86e631204a23", "CommonStartup"},
+        {"0ac0837c-bbf8-452a-850d-79d08e667ca7", "CommonTemplates"},
+        {"4bfefb45-347d-4006-a5be-ac0cb0567192", "Computer"},
+        {"18989b1d-99b5-455b-841c-ab7c74e4ddfc", "Conflict"},
+        {"2b0f765d-c0e9-4171-908e-08a611b84ff6", "Connections"},
+        {"6d0def11-9ab4-49cd-9775-4616656a5a3b", "Contacts"},
+        {"82a74aeb-aebc-465f-9bb9-8dd9b8c5e3b8", "ControlPanel"},
+        {"2f6ce320-c219-11cf-9a87-00aa004ae835", "Cookies"},
+        {"b4bfcc3a-db2c-424c-b029-7fe99a87c641", "Desktop"},
+        {"5ce4a5e9-e4eb-479d-b89f-130c02886155", "Documents"},
+        {"7b0db17d-9cd2-4a93-9733-46cc89022e7c", "Downloads"},
+        {"fde440a0-2211-42c0-9346-6c6b59df291a", "Favorites"},
+        {"374de290-123f-4565-9164-39c4925e467b", "Documents"},
+        {"1777f761-68ad-4d8a-87bd-30b759fa33dd", "Favorites"},
+        {"b94237e7-57ac-4347-9151-b08c6c32d1f7", "Games"},
+        {"cac52c1a-b53d-4edc-92d7-6b2e8ac19434", "GameTasks"},
+        {"054fae61-4dd8-4787-80b6-090220c4b700", "History"},
+        {"4d9f7874-4e0c-4904-967b-40b0d20c3e4b", "InternetCache"},
+        {"352481e8-33be-4251-ba85-6007caedcf9d", "Libraries"},
+        {"bcbd3057-ca5c-4622-b42d-bc56db0ae516", "Links"},
+        {"f1b32785-6fba-4fcf-9d55-7b8e7f157091", "LocalAppData"},
+        {"2a00375e-224c-49de-b8d1-440df7ef3ddc", "LocalAppDataLow"},
+        {"4bd8d571-6d19-48d3-be97-422220080e43", "Music"},
+        {"bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968", "NetHood"},
+        {"c4abec8f-9954-43f2-8ac3-434e456d3862", "Network"},
+        {"d20beec4-5ca8-4905-ae3b-bf251ea09b53", "OriginalImages"},
+        {"2c36c0aa-5812-4b87-bfd0-4cd0dfb19b39", "PhotoAlbums"},
+        {"69d2cf90-fc33-4fb7-9a0c-ebb0f0fcb43c", "Pictures"},
+        {"33e28130-4e1e-4676-835a-98395c3bc3bb", "Pictures"},
+        {"debc7b54-59f4-430b-9c53-4d2b3d6b3f1f", "Playlists"},
+        {"76fc4e2d-d6ad-4519-a663-37bd56068185", "Printers"},
+        {"9274bd8d-cfd1-41c3-b35e-b13f55a758f4", "PrintHood"},
+        {"5e6c858f-0e22-4760-9afe-ea3317b67173", "Profile"},
+        {"62ab5d82-fdc1-4dc3-a9dd-070d1d495d97", "ProgramData"},
+        {"905e63b6-c1bf-494e-b29c-65b732d3d21a", "ProgramFiles"},
+        {"f7f1ed05-9f6d-47a2-aaae-29d317c6f066", "ProgramFilesCommon"},
+        {"6365d5a7-0f0d-45e5-87f0-0da27894f6c2", "ProgramFilesCommonX64"},
+        {"de974d24-d9c9-4d3e-bf91-f4455120b917", "ProgramFilesCommonX86"},
+        {"2cef7f55-9696-44b5-92a8-4c2c4b2e2e2e", "ProgramFilesX64"},
+        {"7c5a40ef-a0fb-4bfc-874a-c0f2e0b9fa8e", "ProgramFilesX86"},
+        {"a77f5d77-2e2b-44c3-a6a2-aba601054a51", "Programs"},
+        {"df7266ac-9274-4867-8d55-3bd661de872d", "Public"},
+        {"c4abec8f-9954-43f2-8ac3-434e456d3862", "PublicDesktop"},
+        {"b4e6f1e5-6e6c-4c7b-8e1e-1a6e3e6a2a6a", "PublicDocuments"},
+        {"3214fab5-9757-4298-bb61-92a9de7c2c7c", "PublicDownloads"},
+        {"56c1e5e4-5ea4-4c6f-8f1a-3e6a3e6a2a6a", "PublicGameTasks"},
+        {"0482af6c-08c4-423c-8e3d-3e6a3e6a2a6a", "PublicLibraries"},
+        {"b6ebfb86-6907-413c-9af7-4fc2ab07f6cc", "PublicMusic"},
+        {"2400183a-6185-49fb-a2d8-4a392a602ba3", "PublicPictures"},
+        {"e555ab60-153b-4d17-9f04-a5fe86fc4c5e", "PublicRingtones"},
+        {"c4900540-2379-4c75-844b-64e6faf8716b", "PublicVideos"},
+        {"3dfdf28f-fdfb-4b1f-a5c7-eb3e5e8e5e8e", "QuickLaunch"},
+        {"bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968", "Recent"},
+        {"1a6fdfa2-3c1c-4c6f-8f1a-3e6a3e6a2a6a", "RecordedTV"},
+        {"8ad10c31-2adb-4296-a8f7-e4701232c972", "RecycleBin"},
+        {"9e3995ab-1a6a-4e6b-8f1a-3e6a3e6a2a6a", "Ringtones"},
+        {"c870044b-f49e-4126-a9c3-b52a1ff411e8", "RoamingAppData"},
+        {"b7534046-3ecb-4c18-be4e-64cd4cb7d6ac", "SavedGames"},
+        {"4c5c32ff-bb9d-43b0-b5b4-2d72e54eaaa4", "SavedSearches"},
+        {"ee32e446-31ca-4aba-814f-a5ebd2fd6d5e", "SEARCH_CSC"},
+        {"98ec0e18-2098-4d44-8644-66979315a281", "SEARCH_MAPI"},
+        {"190337d1-b8ca-4121-a639-6d472d16972a", "SearchHome"},
+        {"4d8f9a3b-5f2e-4c6f-8f1a-3e6a3e6a2a6a", "SendTo"},
+        {"8983036c-27c0-404b-908f-85c8f5e3f923", "SidebarDefaultParts"},
+        {"7b396e54-9ec5-430c-bea0-a3ad65de2b5e", "SidebarParts"},
+        {"a52bba46-e9e1-435f-b3d9-28daa648c0f6", "StartMenu"},
+        {"df7266ac-9274-4867-8d55-3bd661de872d", "StartMenuAllPrograms"},
+        {"625b53c3-ab48-4ec1-ba1f-a1ef4146fc19", "Startup"},
+        {"43668bf8-c14e-49b2-97c9-9747f1d8d8e3", "SyncManager"},
+        {"289a9a43-be44-4057-a41b-587a76d7e7f9", "SyncResults"},
+        {"0f214138-b1d3-4a90-bba9-27cbc0c5389a", "SyncSetup"},
+        {"1ac14e77-02e7-4e5d-b744-2eb1ae5198b7", "System"},
+        {"d65231b0-b2f1-4857-a4ce-a8e7c6ea7d27", "SystemX86"},
+        {"a63293e8-664e-48db-a079-df759e0509f7", "Templates"},
+        {"b4bfcc3a-db2c-424c-b029-7fe99a87c641", "UserPinned"},
+        {"18989b1d-99b5-455b-841c-ab7c74e4ddfc", "UserProfiles"},
+        {"0762d272-c50a-4bb0-a382-697dcd729b80", "UsersFiles"},
+        {"5cd7aee2-2219-4a67-b85d-6c9ce15660cb", "UsersLibraries"},
+        {"f38bf404-1d43-42f2-9305-67de0b28fc23", "Windows"},
+        {"ca8d6317-3a5e-4c6f-8f1a-3e6a3e6a2a6a", "WindowsBurn"},
+    };
+    auto it = kf.find(guid);
+    if (it != kf.end()) return it->second;
+    return "";
+}
+
 static std::time_t GetDateTimeFromGuid(const uint8_t* guidBytes) {
     // .NET Guid timestamp extraction (version 1 GUID)
     // Byte 7 contains version in upper nibble; mask it out
@@ -587,6 +685,9 @@ std::shared_ptr<ExtensionBlock> LnkFile::ParseExtensionBlock(const std::vector<u
                 block->lastAccessTime = DosDateTimeToTimeT(ReadUInt32LE(data, off + 4));
             }
             // Identifier at bytes 16-17
+            if (offset + 18 <= raw.size()) {
+                block->identifier = static_cast<int16_t>(ReadUInt16LE(data, offset + 16));
+            }
             off = offset + 18;
             if (version >= 7 && off + 18 <= offset + blockSize) {
                 off += 2; // skip empty 2
@@ -601,6 +702,21 @@ std::shared_ptr<ExtensionBlock> LnkFile::ParseExtensionBlock(const std::vector<u
                 block->mftInfo.mftEntryNumber = entryIndex;
                 if (seqNum != 0) {
                     block->mftInfo.mftSequenceNumber = seqNum;
+                }
+                // Determine file system hint
+                if (block->mftInfo.mftEntryNumber.has_value() && block->mftInfo.mftSequenceNumber.has_value()) {
+                    if (block->mftInfo.mftEntryNumber.value() > 0 && block->mftInfo.mftSequenceNumber.value() > 0) {
+                        block->mftInfo.note = "NTFS";
+                    }
+                } else if (block->mftInfo.mftEntryNumber.has_value() && !block->mftInfo.mftSequenceNumber.has_value()) {
+                    if (block->lastAccessTime.has_value() && block->lastAccessTime.value() != 0) {
+                        struct tm* t = gmtime(&(*block->lastAccessTime));
+                        if (t && t->tm_min == 0 && t->tm_sec == 0) {
+                            block->mftInfo.note = "FAT";
+                        } else {
+                            block->mftInfo.note = "exFAT";
+                        }
+                    }
                 }
                 off += 8;  // mft data
                 off += 8;  // unknown
@@ -652,12 +768,23 @@ std::shared_ptr<ExtensionBlock> LnkFile::ParseExtensionBlock(const std::vector<u
         case 0xBEEF001A: {
             auto block = std::make_shared<Beef001aBlock>();
             block->signature = signature;
+            if (offset + 8 < offset + blockSize && blockSize > 8) {
+                size_t off = offset + 8;
+                size_t maxChars = (offset + blockSize - off) / 2;
+                block->fileDocumentTypeString = ReadUnicodeNullTerminated(data, off, maxChars);
+            }
             offset += blockSize;
             return block;
         }
         case 0xBEEF0025: {
             auto block = std::make_shared<Beef0025Block>();
             block->signature = signature;
+            if (offset + 16 <= raw.size()) {
+                uint64_t ft1 = ReadUInt64LE(data, offset + 8);
+                uint64_t ft2 = ReadUInt64LE(data, offset + 16);
+                if (ft1 != 0) block->fileTime1 = FileTimeToTimeT(ft1);
+                if (ft2 != 0) block->fileTime2 = FileTimeToTimeT(ft2);
+            }
             offset += blockSize;
             return block;
         }
@@ -954,6 +1081,7 @@ void LnkFile::ParseExtraData(const std::vector<uint8_t>& raw, size_t& index) {
                 if (size >= 28) {
                     block->knownFolderId = GuidToString(data + index + 8);
                     block->offset = ReadUInt32LE(data, index + 24);
+                    block->knownFolderName = GetKnownFolderName(block->knownFolderId);
                 }
                 extraBlocks.push_back(block);
                 break;

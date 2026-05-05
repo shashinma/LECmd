@@ -21,6 +21,7 @@ public:
     static std::string Format(const OptionalTimestamp& ts, const std::string& format = "%Y-%m-%d %H:%M:%S");
     static std::string Format(std::time_t ts, const std::string& format = "%Y-%m-%d %H:%M:%S");
     static std::string FormatMicroseconds(const Timestamp& ts);
+    static std::string FormatMicroseconds(std::time_t ts);
     static Timestamp Now();
     static bool IsValid(const Timestamp& ts);
     static bool IsValid(const OptionalTimestamp& ts);
