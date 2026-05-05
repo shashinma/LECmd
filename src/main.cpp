@@ -19,8 +19,8 @@
 
 using namespace lecmd;
 
-static std::string g_dateFormat = "yyyy-MM-dd HH:mm:ss";
-static std::string g_preciseFormat = "yyyy-MM-dd HH:mm:ss.fffffff";
+static std::string g_dateFormat = "%Y-%m-%d %H:%M:%S";
+static std::string g_preciseFormat = "%Y-%m-%d %H:%M:%S"; // precise microseconds handled separately
 
 static std::string FormatTime(std::time_t t) {
     if (t == 0) return "";
@@ -42,7 +42,7 @@ static std::string GetVersionString() {
            "https://github.com/Artifactum";
 }
 
-static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool neb) {
+static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool neb, const MacVendorLookup& macLookup) {
     std::string src = lnk->sourceFile;
     spdlog::info("Source file: {}", src);
     spdlog::info("  Source created:  {}", FormatTime(lnk->sourceCreated.value_or(0)));
@@ -58,7 +58,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
     spdlog::info("  Target modified: {}", tm.empty() ? "" : tm);
     spdlog::info("  Target accessed: {}", ta.empty() ? "" : ta);
     std::cout << "\n";
-    spdlog::info("  File size (bytes): {:,}", lnk->header.fileSize);
+    spdlog::info("  File size (bytes): {}", lnk->header.fileSize);
     spdlog::info("  Flags: {}", lnk->header.GetDataFlagsString());
     spdlog::info("  File attributes: {}", lnk->header.GetFileAttributesString());
     if (!lnk->header.GetHotKeyString().empty()) {
@@ -120,7 +120,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
 
     if (nid) {
         std::cout << "\n";
-        spdlog::info("(Target ID information suppressed. Lnk TargetID count: {:,})", lnk->targetIDs.size());
+        spdlog::info("(Target ID information suppressed. Lnk TargetID count: {})", lnk->targetIDs.size());
     }
 
     if (!lnk->targetIDs.empty() && !nid) {
@@ -140,7 +140,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
 
     if (neb) {
         std::cout << "\n";
-        spdlog::info("(Extra blocks information suppressed. Lnk Extra block count: {:,})", lnk->extraBlocks.size());
+        spdlog::info("(Extra blocks information suppressed. Lnk Extra block count: {})", lnk->extraBlocks.size());
     }
 
     if (!lnk->extraBlocks.empty() && !neb) {
@@ -153,6 +153,15 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
                 spdlog::info(">> Tracker database block");
                 spdlog::info("   Machine ID:  {}", tracker->machineId);
                 spdlog::info("   MAC Address: {}", tracker->macAddress);
+                if (!tracker->macAddress.empty()) {
+                    std::string vendor = macLookup.Lookup(tracker->macAddress);
+                    if (!vendor.empty()) {
+                        spdlog::info("   MAC Vendor:  {}", vendor);
+                    }
+                }
+                if (tracker->creationTime.has_value() && tracker->creationTime.value() != 0) {
+                    spdlog::info("   Creation:    {}", FormatTime(tracker->creationTime.value()));
+                }
                 std::cout << "\n";
                 spdlog::info("   Volume Droid:       {}", tracker->volumeDroid);
                 spdlog::info("   Volume Droid Birth: {}", tracker->volumeDroidBirth);
@@ -187,7 +196,7 @@ int main(int argc, char** argv) {
     bool pretty = false;
     bool nid = false;
     bool neb = false;
-    std::string dt = "yyyy-MM-dd HH:mm:ss";
+    std::string dt = "%Y-%m-%d %H:%M:%S";
     bool mp = false;
     int cp = 1252;
     bool debug = false;
@@ -264,7 +273,7 @@ int main(int argc, char** argv) {
             if (!removableOnly || (lnk->linkInfo && lnk->linkInfo->volumeInfo && lnk->linkInfo->volumeInfo->driveType == VolumeInfo::DriveRemovable)) {
                 processedFiles.push_back(lnk);
                 if (!quiet) {
-                    DumpLnkToConsole(lnk, nid, neb);
+                    DumpLnkToConsole(lnk, nid, neb, macLookup);
                 }
             }
         } else {
@@ -277,7 +286,18 @@ int main(int argc, char** argv) {
 
         std::vector<std::string> lnkFiles;
         try {
-            for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath)) {
+            std::error_code ec;
+            std::filesystem::recursive_directory_iterator it(dirPath, std::filesystem::directory_options::skip_permission_denied, ec);
+            if (ec) {
+                spdlog::error("Error opening directory {}. Error: {}", dirPath, ec.message());
+                return 1;
+            }
+            for (; it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+                if (ec) {
+                    ec.clear();
+                    continue;
+                }
+                const auto& entry = *it;
                 if (entry.is_regular_file()) {
                     std::string ext = entry.path().extension().string();
                     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -291,7 +311,7 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        spdlog::info("Found {:,} files", lnkFiles.size());
+        spdlog::info("Found {} files", lnkFiles.size());
         std::cout << "\n";
 
         for (const auto& f : lnkFiles) {
@@ -300,7 +320,7 @@ int main(int argc, char** argv) {
                 if (!removableOnly || (lnk->linkInfo && lnk->linkInfo->volumeInfo && lnk->linkInfo->volumeInfo->driveType == VolumeInfo::DriveRemovable)) {
                     processedFiles.push_back(lnk);
                     if (!quiet) {
-                        DumpLnkToConsole(lnk, nid, neb);
+                        DumpLnkToConsole(lnk, nid, neb, macLookup);
                     }
                 }
             } else {
@@ -309,7 +329,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        spdlog::info("Processed {:,} out of {:,} files", lnkFiles.size() - failedFiles.size(), lnkFiles.size());
+        spdlog::info("Processed {} out of {} files", lnkFiles.size() - failedFiles.size(), lnkFiles.size());
         if (!failedFiles.empty()) {
             std::cout << "\n";
             spdlog::info("Failed files");

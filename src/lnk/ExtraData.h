@@ -88,9 +88,7 @@ struct SpecialFolderDataBlock : ExtraDataBase {
 };
 
 struct TrackerDataBaseBlock : ExtraDataBase {
-    uint32_t machineIdOffset = 0;
-    uint32_t droidOffset = 0;
-    uint32_t droidBirthOffset = 0;
+    int32_t version = 0;
     std::string machineId;
     std::string macAddress;
     std::optional<std::time_t> creationTime;

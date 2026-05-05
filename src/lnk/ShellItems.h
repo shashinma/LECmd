@@ -26,6 +26,7 @@ struct MFTInformation {
 };
 
 struct Beef0004Block : ExtensionBlock {
+    uint16_t version = 0;
     std::string longName;
     std::string localisedName;
     std::optional<std::time_t> createdOnTime;
