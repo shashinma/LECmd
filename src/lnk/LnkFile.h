@@ -48,6 +48,7 @@ public:
     std::shared_ptr<TrackerDataBaseBlock> GetTrackerData() const;
 
 private:
+    int codepage_ = 1252;
     bool Parse(const std::vector<uint8_t>& raw, int codepage);
     void ParseStringData(const std::vector<uint8_t>& raw, size_t& index);
     void ParseLinkInfo(const std::vector<uint8_t>& raw, size_t& index);

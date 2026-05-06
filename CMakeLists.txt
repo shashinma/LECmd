@@ -24,6 +24,7 @@ set(LECMD_SOURCES
     src/lnk/ShellItems.cpp
     src/lnk/ExtraData.cpp
     src/lnk/ExtensionBlocks.cpp
+    src/lnk/PropertyStore.cpp
     src/output/CsvWriter.cpp
     src/output/JsonWriter.cpp
     src/output/XmlWriter.cpp
@@ -40,6 +41,7 @@ set(LECMD_HEADERS
     src/lnk/ShellItems.h
     src/lnk/ExtraData.h
     src/lnk/ExtensionBlocks.h
+    src/lnk/PropertyStore.h
     src/output/CsvWriter.h
     src/output/JsonWriter.h
     src/output/XmlWriter.h

@@ -71,9 +71,10 @@ struct KnownFolderDataBlock : ExtraDataBase {
     std::string GetTypeName() const override { return "KnownFolderDataBlock"; }
 };
 
+struct PropertySheet;
+
 struct PropertyStoreDataBlock : ExtraDataBase {
-    std::vector<std::tuple<std::string, std::string, std::string, std::string>> properties;
-    // (guid, key, description, value)
+    std::vector<PropertySheet> sheets;
     std::string GetTypeName() const override { return "PropertyStoreDataBlock"; }
 };
 

@@ -1,4 +1,5 @@
 #include "LnkFile.h"
+#include "PropertyStore.h"
 #include <fstream>
 #include <cstring>
 #include <ctime>
@@ -149,6 +150,7 @@ std::shared_ptr<LnkFile> LnkFile::Load(const std::string& path, int codepage) {
 }
 
 bool LnkFile::Parse(const std::vector<uint8_t>& raw, int codepage) {
+    codepage_ = codepage;
     if (raw.size() < 76) return false;
 
     const uint8_t* data = raw.data();
@@ -216,7 +218,7 @@ void LnkFile::ParseTargetIDList(const std::vector<uint8_t>& raw, size_t& index) 
         if (index + itemSize > listEnd) break;
 
         std::vector<uint8_t> itemData(raw.begin() + index, raw.begin() + index + itemSize);
-        auto bag = ParseShellItem(itemData, 1252);
+        auto bag = ParseShellItem(itemData, codepage_);
         if (bag) {
             targetIDs.push_back(bag);
         }
@@ -914,6 +916,52 @@ void LnkFile::ParseLinkInfo(const std::vector<uint8_t>& raw, size_t& index) {
         }
     }
 
+    // Unicode paths (Vista+)
+    if (unicode) {
+        if (linkInfo->localBasePathOffsetUnicode > 0) {
+            size_t pathOff = index + linkInfo->localBasePathOffsetUnicode;
+            if (pathOff + 2 <= raw.size()) {
+                size_t maxChars = (raw.size() - pathOff) / 2;
+                std::string path;
+                for (size_t i = 0; i < maxChars; ++i) {
+                    uint16_t ch = ReadUInt16LE(data, pathOff + i * 2);
+                    if (ch == 0) break;
+                    if (ch < 0x80) path += static_cast<char>(ch);
+                    else if (ch < 0x800) {
+                        path += static_cast<char>(0xC0 | (ch >> 6));
+                        path += static_cast<char>(0x80 | (ch & 0x3F));
+                    } else {
+                        path += static_cast<char>(0xE0 | (ch >> 12));
+                        path += static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
+                        path += static_cast<char>(0x80 | (ch & 0x3F));
+                    }
+                }
+                linkInfo->localBasePathUnicode = path;
+            }
+        }
+        if (linkInfo->commonPathSuffixOffsetUnicode > 0) {
+            size_t pathOff = index + linkInfo->commonPathSuffixOffsetUnicode;
+            if (pathOff + 2 <= raw.size()) {
+                size_t maxChars = (raw.size() - pathOff) / 2;
+                std::string path;
+                for (size_t i = 0; i < maxChars; ++i) {
+                    uint16_t ch = ReadUInt16LE(data, pathOff + i * 2);
+                    if (ch == 0) break;
+                    if (ch < 0x80) path += static_cast<char>(ch);
+                    else if (ch < 0x800) {
+                        path += static_cast<char>(0xC0 | (ch >> 6));
+                        path += static_cast<char>(0x80 | (ch & 0x3F));
+                    } else {
+                        path += static_cast<char>(0xE0 | (ch >> 12));
+                        path += static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
+                        path += static_cast<char>(0x80 | (ch & 0x3F));
+                    }
+                }
+                linkInfo->commonPathSuffixUnicode = path;
+            }
+        }
+    }
+
     index += linkInfo->size;
 }
 
@@ -1090,7 +1138,11 @@ void LnkFile::ParseExtraData(const std::vector<uint8_t>& raw, size_t& index) {
                 auto block = std::make_shared<PropertyStoreDataBlock>();
                 block->size = size;
                 block->signature = sig;
-                // Property store parsing is complex, skip detailed parsing for now
+                if (size > 8) {
+                    std::vector<uint8_t> storeBytes(data + index + 8, data + index + size);
+                    PropertyStore ps(storeBytes);
+                    block->sheets = std::move(ps.sheets);
+                }
                 extraBlocks.push_back(block);
                 break;
             }
@@ -1192,7 +1244,7 @@ void LnkFile::ParseExtraData(const std::vector<uint8_t>& raw, size_t& index) {
                         if (itemSize == 0) break;
                         if (listOff + itemSize > raw.size()) break;
                         std::vector<uint8_t> itemData(raw.begin() + listOff, raw.begin() + listOff + itemSize);
-                        auto bag = ParseShellItem(itemData, 1252);
+                        auto bag = ParseShellItem(itemData, codepage_);
                         if (bag) block->targetIDs.push_back(bag);
                         listOff += itemSize;
                     }
@@ -1211,15 +1263,25 @@ void LnkFile::ParseExtraData(const std::vector<uint8_t>& raw, size_t& index) {
 }
 
 std::string LnkFile::LocalPath() const {
-    if (linkInfo && !linkInfo->localBasePath.empty()) {
-        return linkInfo->localBasePath;
+    if (linkInfo) {
+        if (!linkInfo->localBasePathUnicode.empty()) {
+            return linkInfo->localBasePathUnicode;
+        }
+        if (!linkInfo->localBasePath.empty()) {
+            return linkInfo->localBasePath;
+        }
     }
     return "";
 }
 
 std::string LnkFile::CommonPath() const {
-    if (linkInfo && !linkInfo->commonPathSuffix.empty()) {
-        return linkInfo->commonPathSuffix;
+    if (linkInfo) {
+        if (!linkInfo->commonPathSuffixUnicode.empty()) {
+            return linkInfo->commonPathSuffixUnicode;
+        }
+        if (!linkInfo->commonPathSuffix.empty()) {
+            return linkInfo->commonPathSuffix;
+        }
     }
     return "";
 }

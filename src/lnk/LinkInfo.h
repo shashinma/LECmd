@@ -36,6 +36,8 @@ struct LinkInfo {
     std::shared_ptr<NetworkShareInfo> networkShareInfo;
     std::string localBasePath;
     std::string commonPathSuffix;
+    std::string localBasePathUnicode;
+    std::string commonPathSuffixUnicode;
 
     bool HasVolumeID() const { return (flags & 0x0001) != 0; }
     bool HasNetworkShare() const { return (flags & 0x0002) != 0; }

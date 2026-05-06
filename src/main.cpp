@@ -10,6 +10,7 @@
 #include <filesystem>
 
 #include "lnk/LnkFile.h"
+#include "lnk/PropertyStore.h"
 #include "output/CsvWriter.h"
 #include "output/JsonWriter.h"
 #include "output/XmlWriter.h"
@@ -288,11 +289,26 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
                 std::cout << "\n";
             } else if (auto ps = std::dynamic_pointer_cast<PropertyStoreDataBlock>(eb)) {
                 spdlog::info(">> Property store data block");
-                if (ps->properties.empty()) {
+                if (ps->sheets.empty()) {
                     spdlog::info("   (Property store not parsed)");
                 } else {
-                    for (const auto& prop : ps->properties) {
-                        spdlog::info("   {}\\{} {} ==> {}", std::get<0>(prop), std::get<1>(prop), std::get<2>(prop), std::get<3>(prop));
+                    for (const auto& sheet : ps->sheets) {
+                        spdlog::info("   ---");
+                        spdlog::info("   GUID: {}", sheet.guid);
+                        std::string folderName = GetFolderNameFromGuid(sheet.guid);
+                        if (!folderName.empty()) {
+                            spdlog::info("   Folder name: {}", folderName);
+                        }
+                        for (const auto& prop : sheet.properties) {
+                            const auto& key = std::get<0>(prop);
+                            const auto& desc = std::get<1>(prop);
+                            const auto& value = std::get<2>(prop);
+                            if (!desc.empty()) {
+                                spdlog::info("   {} ({}): {}", key, desc, value);
+                            } else {
+                                spdlog::info("   {}: {}", key, value);
+                            }
+                        }
                     }
                 }
                 std::cout << "\n";
