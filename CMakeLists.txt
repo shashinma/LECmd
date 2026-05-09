@@ -31,6 +31,7 @@ set(LECMD_SOURCES
     src/output/HtmlWriter.cpp
     src/utils/DateTimeUtils.cpp
     src/utils/MacVendor.cpp
+    src/utils/StringUtils.cpp
 )
 
 set(LECMD_HEADERS
@@ -48,6 +49,7 @@ set(LECMD_HEADERS
     src/output/HtmlWriter.h
     src/utils/DateTimeUtils.h
     src/utils/MacVendor.h
+    src/utils/StringUtils.h
 )
 
 add_library(lecmd_lib STATIC ${LECMD_SOURCES} ${LECMD_HEADERS})
@@ -66,6 +68,12 @@ target_link_libraries(lecmd_lib
 
 if(WIN32)
     target_compile_definitions(lecmd_lib PRIVATE _WIN32_WINNT=0x0601 NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
+# Find iconv for codepage string decoding (macOS/Linux)
+find_package(Iconv)
+if(Iconv_FOUND)
+    target_link_libraries(lecmd_lib PUBLIC Iconv::Iconv)
 endif()
 
 if(MSVC)

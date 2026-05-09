@@ -6,47 +6,58 @@ using json = nlohmann::json;
 
 namespace lecmd {
 
-bool JsonWriter::Write(const std::string& path, const std::vector<CsvOut>& entries, bool pretty) {
-    json root = json::array();
-    for (const auto& e : entries) {
-        json j;
-        j["SourceFile"] = e.sourceFile;
-        j["SourceCreated"] = e.sourceCreated;
-        j["SourceModified"] = e.sourceModified;
-        j["SourceAccessed"] = e.sourceAccessed;
-        j["TargetCreated"] = e.targetCreated;
-        j["TargetModified"] = e.targetModified;
-        j["TargetAccessed"] = e.targetAccessed;
-        j["FileSize"] = e.fileSize;
-        j["RelativePath"] = e.relativePath;
-        j["WorkingDirectory"] = e.workingDirectory;
-        j["FileAttributes"] = e.fileAttributes;
-        j["HeaderFlags"] = e.headerFlags;
-        j["DriveType"] = e.driveType;
-        j["VolumeSerialNumber"] = e.volumeSerialNumber;
-        j["VolumeLabel"] = e.volumeLabel;
-        j["LocalPath"] = e.localPath;
-        j["NetworkPath"] = e.networkPath;
-        j["CommonPath"] = e.commonPath;
-        j["Arguments"] = e.arguments;
-        j["TargetIDAbsolutePath"] = e.targetIDAbsolutePath;
-        j["TargetMFTEntryNumber"] = e.targetMFTEntryNumber;
-        j["TargetMFTSequenceNumber"] = e.targetMFTSequenceNumber;
-        j["MachineID"] = e.machineID;
-        j["MachineMACAddress"] = e.machineMACAddress;
-        j["MACVendor"] = e.macVendor;
-        j["TrackerCreatedOn"] = e.trackerCreatedOn;
-        j["ExtraBlocksPresent"] = e.extraBlocksPresent;
-        root.push_back(j);
-    }
+static json ToJson(const CsvOut& e, bool nukeNulls) {
+    auto setField = [&](json& j, const char* key, const std::string& value) {
+        if (nukeNulls && value.empty()) {
+            j[key] = nullptr;
+        } else {
+            j[key] = value;
+        }
+    };
 
+    json j;
+    setField(j, "SourceFile", e.sourceFile);
+    setField(j, "SourceCreated", e.sourceCreated);
+    setField(j, "SourceModified", e.sourceModified);
+    setField(j, "SourceAccessed", e.sourceAccessed);
+    setField(j, "TargetCreated", e.targetCreated);
+    setField(j, "TargetModified", e.targetModified);
+    setField(j, "TargetAccessed", e.targetAccessed);
+    j["FileSize"] = e.fileSize;
+    setField(j, "RelativePath", e.relativePath);
+    setField(j, "WorkingDirectory", e.workingDirectory);
+    setField(j, "FileAttributes", e.fileAttributes);
+    setField(j, "HeaderFlags", e.headerFlags);
+    setField(j, "DriveType", e.driveType);
+    setField(j, "VolumeSerialNumber", e.volumeSerialNumber);
+    setField(j, "VolumeLabel", e.volumeLabel);
+    setField(j, "LocalPath", e.localPath);
+    setField(j, "NetworkPath", e.networkPath);
+    setField(j, "CommonPath", e.commonPath);
+    setField(j, "Arguments", e.arguments);
+    setField(j, "TargetIDAbsolutePath", e.targetIDAbsolutePath);
+    setField(j, "TargetMFTEntryNumber", e.targetMFTEntryNumber);
+    setField(j, "TargetMFTSequenceNumber", e.targetMFTSequenceNumber);
+    setField(j, "MachineID", e.machineID);
+    setField(j, "MachineMACAddress", e.machineMACAddress);
+    setField(j, "MACVendor", e.macVendor);
+    setField(j, "TrackerCreatedOn", e.trackerCreatedOn);
+    setField(j, "ExtraBlocksPresent", e.extraBlocksPresent);
+    return j;
+}
+
+bool JsonWriter::Write(const std::string& path, const std::vector<CsvOut>& entries, bool pretty) {
     std::ofstream file(path);
     if (!file.is_open()) return false;
 
-    if (pretty) {
-        file << root.dump(2);
-    } else {
-        file << root.dump();
+    for (const auto& e : entries) {
+        json j = ToJson(e, true); // nukeNulls = true for JSON
+        if (pretty) {
+            file << j.dump(2);
+        } else {
+            file << j.dump();
+        }
+        file << "\n";
     }
     return true;
 }

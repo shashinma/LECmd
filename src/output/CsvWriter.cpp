@@ -88,7 +88,12 @@ CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& date
     CsvOut out;
     if (!lnk) return out;
 
-    out.sourceFile = lnk->sourceFile;
+    // Strip \\?\ prefix like original C#
+    std::string src = lnk->sourceFile;
+    if (src.rfind("\\\\?\\", 0) == 0) {
+        src = src.substr(4);
+    }
+    out.sourceFile = src;
     out.sourceCreated = FormatTime(lnk->sourceCreated.value_or(0), dateFormat, useMicroseconds);
     out.sourceModified = FormatTime(lnk->sourceModified.value_or(0), dateFormat, useMicroseconds);
     out.sourceAccessed = FormatTime(lnk->sourceAccessed.value_or(0), dateFormat, useMicroseconds);
@@ -125,12 +130,12 @@ CsvOut GetCsvFormat(const std::shared_ptr<LnkFile>& lnk, const std::string& date
             if (auto b4 = std::dynamic_pointer_cast<Beef0004Block>(eb)) {
                 if (b4->mftInfo.mftEntryNumber.has_value()) {
                     std::ostringstream oss;
-                    oss << "0x" << std::hex << *b4->mftInfo.mftEntryNumber;
+                    oss << "0x" << std::uppercase << std::hex << *b4->mftInfo.mftEntryNumber;
                     out.targetMFTEntryNumber = oss.str();
                 }
                 if (b4->mftInfo.mftSequenceNumber.has_value()) {
                     std::ostringstream oss;
-                    oss << "0x" << std::hex << *b4->mftInfo.mftSequenceNumber;
+                    oss << "0x" << std::uppercase << std::hex << *b4->mftInfo.mftSequenceNumber;
                     out.targetMFTSequenceNumber = oss.str();
                 }
             }
