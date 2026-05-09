@@ -50,6 +50,15 @@ struct LnkHeader {
         RunWithShimLayer    = 0x00020000,
         ForceNoLinkTrack    = 0x00040000,
         EnableTargetMetadata= 0x00080000,
+        Reserved0           = 0x00000800,
+        Reserved1           = 0x00010000,
+        DisableLinkPathTracking = 0x00100000,
+        DisableKnownFolderTracking = 0x00200000,
+        DisableKnownFolderAlias = 0x00400000,
+        AllowLinkToLink     = 0x00800000,
+        UnaliasOnSave       = 0x01000000,
+        PreferEnvironmentPath = 0x02000000,
+        KeepLocalIdListForUncTarget = 0x04000000,
     };
 
     enum FileAttribute : uint32_t {

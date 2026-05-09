@@ -130,7 +130,9 @@ std::string DateTimeUtils::FormatMicroseconds(const Timestamp& ts) {
 
     std::ostringstream ss;
     ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-    ss << "." << std::setfill('0') << std::setw(6) << micros.count();
+    // .NET fffffff = 7 digits (100-nanosecond ticks). Convert microseconds to tenths of microseconds.
+    auto ticks = micros.count() * 10;
+    ss << "." << std::setfill('0') << std::setw(7) << ticks;
     return ss.str();
 }
 

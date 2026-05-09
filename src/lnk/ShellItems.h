@@ -49,6 +49,27 @@ struct Beef0025Block : ExtensionBlock {
     std::string GetTypeName() const override { return "Beef0025"; }
 };
 
+struct Beef0005Block : ExtensionBlock {
+    std::string GetTypeName() const override { return "Beef0005"; }
+};
+
+struct Beef0026Block : ExtensionBlock {
+    uint16_t version = 0;
+    std::optional<std::time_t> createdOn;
+    std::optional<std::time_t> lastModified;
+    std::optional<std::time_t> lastAccessed;
+    // For PropertyStore variant
+    std::vector<std::pair<std::string, std::string>> propertyStore;
+    int16_t versionOffset = 0;
+    std::string GetTypeName() const override { return "Beef0026"; }
+};
+
+struct BeefUnknownBlock : ExtensionBlock {
+    uint16_t version = 0;
+    std::vector<uint8_t> rawBytes;
+    std::string GetTypeName() const override { return "BeefUnknown"; }
+};
+
 struct ShellBag {
     uint8_t type = 0;
     uint16_t size = 0;
@@ -66,6 +87,40 @@ struct ShellBag {
 
     // For 0x01 drive letter
     std::string driveLetter;
+
+    // For 0x00 special cases (FTP, MTP, CD Burn, URL)
+    std::optional<std::time_t> createdOnTime;
+    std::optional<std::time_t> lastAccessTime;
+    std::optional<std::time_t> ftpFolderTime;
+    std::string fullUrl;
+    std::vector<std::string> mtpGuids;
+    std::string storageIdName;
+    std::string fileSystemName;
+    std::string classId;
+    std::string mtpType1GuidName;
+
+    // For 0x1F Windows Backup
+    std::optional<std::time_t> modifiedDateFromBackup;
+    std::optional<std::time_t> createdDateFromBackup;
+    std::optional<std::time_t> backupDateTime;
+    std::optional<std::time_t> backupUnknownDateTime;
+
+    // For 0x61 URI
+    std::string uri;
+    std::string userName;
+    uint8_t uriFlags = 0;
+    std::optional<std::time_t> fileTime1;
+
+    // For 0x2E Control Panel / User profile
+    std::string category;
+    std::string devicePath;
+
+    // For 0xC3
+    uint8_t c3ClassType = 0;
+    uint8_t c3Flags = 0;
+
+    // For 0x40 Network
+    std::string networkDesc;
 
     virtual ~ShellBag() = default;
     virtual std::string GetTypeName() const;

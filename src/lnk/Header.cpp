@@ -21,8 +21,17 @@ std::string LnkHeader::GetDataFlagsString() const {
     if (HasFlag(HasExpIcon))          flags.push_back("HasExpIcon");
     if (HasFlag(NoPidlAlias))         flags.push_back("NoPidlAlias");
     if (HasFlag(RunWithShimLayer))    flags.push_back("RunWithShimLayer");
+    if (HasFlag(Reserved0))           flags.push_back("Reserved0");
+    if (HasFlag(Reserved1))           flags.push_back("Reserved1");
     if (HasFlag(ForceNoLinkTrack))    flags.push_back("ForceNoLinkTrack");
     if (HasFlag(EnableTargetMetadata))flags.push_back("EnableTargetMetadata");
+    if (HasFlag(DisableLinkPathTracking)) flags.push_back("DisableLinkPathTracking");
+    if (HasFlag(DisableKnownFolderTracking)) flags.push_back("DisableKnownFolderTracking");
+    if (HasFlag(DisableKnownFolderAlias)) flags.push_back("DisableKnownFolderAlias");
+    if (HasFlag(AllowLinkToLink))     flags.push_back("AllowLinkToLink");
+    if (HasFlag(UnaliasOnSave))       flags.push_back("UnaliasOnSave");
+    if (HasFlag(PreferEnvironmentPath)) flags.push_back("PreferEnvironmentPath");
+    if (HasFlag(KeepLocalIdListForUncTarget)) flags.push_back("KeepLocalIdListForUncTarget");
 
     std::ostringstream oss;
     for (size_t i = 0; i < flags.size(); ++i) {
@@ -40,6 +49,7 @@ std::string LnkHeader::GetFileAttributesString() const {
     if (HasFileAttr(FileAttributeDirectory))       attrs.push_back("Directory");
     if (HasFileAttr(FileAttributeArchive))         attrs.push_back("Archive");
     if (HasFileAttr(FileAttributeDevice))          attrs.push_back("Device");
+    if (HasFileAttr(ResVolumeLabel))               attrs.push_back("ResVolumeLabel");
     if (HasFileAttr(FileAttributeNormal))          attrs.push_back("Normal");
     if (HasFileAttr(FileAttributeTemporary))       attrs.push_back("Temporary");
     if (HasFileAttr(FileAttributeSparseFile))      attrs.push_back("SparseFile");
@@ -73,6 +83,7 @@ std::string LnkHeader::GetShowWindowString() const {
         case 9:  return "Restores the window";
         case 10: return "Set the show state based on the ShowWindow values";
         case 11: return "Minimizes a window";
+        case 0xCC: return "Undocumented according to wine project";
         default: return "Unknown";
     }
 }

@@ -26,9 +26,12 @@ struct ConsoleDataBlock : ExtraDataBase {
     uint16_t windowHeight = 0;
     uint16_t windowOriginX = 0;
     uint16_t windowOriginY = 0;
-    uint32_t fontSize = 0;
+    int32_t reserved0 = 0;
+    int32_t reserved1 = 0;
+    uint16_t fontSize = 0;
     uint32_t fontFamily = 0;
-    uint32_t fontWeight = 0;
+    uint16_t fontWeight = 0;
+    bool isBold = false;
     std::string faceName;
     uint32_t cursorSize = 0;
     uint32_t fullScreen = 0;
@@ -38,6 +41,7 @@ struct ConsoleDataBlock : ExtraDataBase {
     uint32_t historyBufferSize = 0;
     uint32_t numberOfHistoryBuffers = 0;
     uint32_t historyNoDup = 0;
+    std::vector<uint32_t> colorTable;
     std::string GetTypeName() const override { return "ConsoleDataBlock"; }
 };
 
@@ -47,6 +51,7 @@ struct ConsoleFEDataBlock : ExtraDataBase {
 };
 
 struct DarwinDataBlock : ExtraDataBase {
+    std::string applicationIdentifierAscii;
     std::string applicationIdentifierUnicode;
     std::string productCode;
     std::string featureName;
@@ -55,11 +60,13 @@ struct DarwinDataBlock : ExtraDataBase {
 };
 
 struct EnvironmentVariableDataBlock : ExtraDataBase {
+    std::string environmentVariablesAscii;
     std::string environmentVariablesUnicode;
     std::string GetTypeName() const override { return "EnvironmentVariableDataBlock"; }
 };
 
 struct IconEnvironmentDataBlock : ExtraDataBase {
+    std::string iconPathAscii;
     std::string iconPathUni;
     std::string GetTypeName() const override { return "IconEnvironmentDataBlock"; }
 };
@@ -109,6 +116,7 @@ struct VistaAndAboveIdListDataBlock : ExtraDataBase {
 struct DamagedDataBlock : ExtraDataBase {
     uint32_t originalSignature = 0;
     std::string errorMessage;
+    std::vector<uint8_t> rawBytes;
     std::string GetTypeName() const override { return "DamagedDataBlock"; }
 };
 
