@@ -31,6 +31,16 @@ static std::string FormatTime(std::time_t t) {
     return DateTimeUtils::Format(t, g_dateFormat);
 }
 
+static std::string FormatFileSize(uint32_t size) {
+    std::string s = std::to_string(size);
+    std::string result;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i > 0 && (s.size() - i) % 3 == 0) result += ',';
+        result += s[i];
+    }
+    return result;
+}
+
 static std::string FormatFileTime(uint64_t ft) {
     if (ft == 0 || ft == 0xFFFFFFFFFFFFFFFEULL) return "";
     const uint64_t EPOCH_DIFF = 116444736000000000ULL;
@@ -82,7 +92,11 @@ static void DumpExtensionBlockDetails(const std::shared_ptr<ExtensionBlock>& eb,
         std::string ft2 = b25->fileTime2.has_value() ? DateTimeUtils::Format(b25->fileTime2.value(), "%Y-%m-%d %H:%M:%S") : "";
         spdlog::info("    Filetime 1: {}, Filetime 2: {}", ft1, ft2);
     } else if (auto b3 = std::dynamic_pointer_cast<Beef0003Block>(eb)) {
-        spdlog::info("    GUID: {}", b3->guid1);
+        if (!b3->guid1Folder.empty()) {
+            spdlog::info("    GUID: {} ({})", b3->guid1, b3->guid1Folder);
+        } else {
+            spdlog::info("    GUID: {}", b3->guid1);
+        }
     } else if (auto b1a = std::dynamic_pointer_cast<Beef001aBlock>(eb)) {
         spdlog::info("    File document type: {}", b1a->fileDocumentTypeString);
     } else {
@@ -106,7 +120,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
     spdlog::info("  Target modified: {}", tm.empty() ? "" : tm);
     spdlog::info("  Target accessed: {}", ta.empty() ? "" : ta);
     std::cout << "\n";
-    spdlog::info("  File size (bytes): {}", lnk->header.fileSize);
+    spdlog::info("  File size (bytes): {}", FormatFileSize(lnk->header.fileSize));
     spdlog::info("  Flags: {}", lnk->header.GetDataFlagsString());
     spdlog::info("  File attributes: {}", lnk->header.GetFileAttributesString());
     if (!lnk->header.GetHotKeyString().empty()) {
@@ -182,12 +196,193 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
             std::string val = bag->value.empty() ? "(None)" : bag->value;
             spdlog::info("  -{} ==> {}", bag->friendlyName, val);
 
-            // Detailed output for directory/file/delegate items with extension blocks
-            bool hasDetails = (bag->type == 0x31 || bag->type == 0x32 || bag->type == 0x36 || bag->type == 0x74);
-            if (hasDetails) {
+            // ShellBag0x00 details
+            if (bag->type == 0x00) {
+                if (!bag->propertyStore.empty()) {
+                    spdlog::info("  >> Property store (Format: GUID\\ID Description ==> Value)");
+                    for (const auto& kv : bag->propertyStore) {
+                        spdlog::info("   {} ==> {}", kv.first, kv.second);
+                    }
+                }
+                if (bag->createdOnTime.has_value() && bag->createdOnTime.value() != 0) {
+                    spdlog::info("    Created On: {}", DateTimeUtils::Format(bag->createdOnTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->lastModificationTime.has_value() && bag->lastModificationTime.value() != 0) {
+                    spdlog::info("    Modified On: {}", DateTimeUtils::Format(bag->lastModificationTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->lastAccessTime.has_value() && bag->lastAccessTime.value() != 0) {
+                    spdlog::info("    Accessed On: {}", DateTimeUtils::Format(bag->lastAccessTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (!bag->fullUrl.empty()) {
+                    spdlog::info("    Full URL: {}", bag->fullUrl);
+                }
+                if (bag->ftpFolderTime.has_value() && bag->ftpFolderTime.value() != 0) {
+                    spdlog::info("    FTP folder time: {}", DateTimeUtils::Format(bag->ftpFolderTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
                 if (!bag->shortName.empty()) {
                     spdlog::info("    Short name: {}", bag->shortName);
                 }
+                if (!bag->mtpGuids.empty()) {
+                    spdlog::info("    MTP GUIDs");
+                    for (const auto& g : bag->mtpGuids) {
+                        spdlog::info("    {}", g);
+                    }
+                }
+                if (!bag->fileSystemName.empty()) {
+                    spdlog::info("    File system name: {}", bag->fileSystemName);
+                }
+                if (!bag->storageIdName.empty()) {
+                    spdlog::info("    Storage ID name: {}", bag->storageIdName);
+                }
+                if (!bag->classId.empty()) {
+                    spdlog::info("    Class ID: {}", bag->classId);
+                }
+                if (!bag->mtpType1GuidName.empty()) {
+                    spdlog::info("    GUID: {}", bag->mtpType1GuidName);
+                }
+                if (!bag->extensionBlocks.empty()) {
+                    std::cout << "\n";
+                    int extNum = 0;
+                    for (const auto& eb : bag->extensionBlocks) {
+                        DumpExtensionBlockDetails(eb, extNum);
+                        extNum++;
+                    }
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x1F details
+            if (bag->type == 0x1f) {
+                if (!bag->propertyStore.empty()) {
+                    spdlog::info("  >> Property store (Format: GUID\\ID Description ==> Value)");
+                    for (const auto& kv : bag->propertyStore) {
+                        spdlog::info("   {} ==> {}", kv.first, kv.second);
+                    }
+                }
+                if (bag->lastAccessTime.has_value() && bag->lastAccessTime.value() != 0) {
+                    spdlog::info("    Accessed On: {}", DateTimeUtils::Format(bag->lastAccessTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->modifiedDateFromBackup.has_value() && bag->modifiedDateFromBackup.value() != 0) {
+                    spdlog::info("    Modified Date From Backup: {}", DateTimeUtils::Format(bag->modifiedDateFromBackup.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->createdDateFromBackup.has_value() && bag->createdDateFromBackup.value() != 0) {
+                    spdlog::info("    Created Date From Backup: {}", DateTimeUtils::Format(bag->createdDateFromBackup.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->backupDateTime.has_value() && bag->backupDateTime.value() != 0) {
+                    spdlog::info("    Backup Date Time: {}", DateTimeUtils::Format(bag->backupDateTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (bag->backupUnknownDateTime.has_value() && bag->backupUnknownDateTime.value() != 0) {
+                    spdlog::info("    Backup Unknown Date Time: {}", DateTimeUtils::Format(bag->backupUnknownDateTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (!bag->extensionBlocks.empty()) {
+                    std::cout << "\n";
+                    int extNum = 0;
+                    for (const auto& eb : bag->extensionBlocks) {
+                        DumpExtensionBlockDetails(eb, extNum);
+                        extNum++;
+                    }
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x71 details
+            if (bag->type == 0x71) {
+                if (!bag->propertyStore.empty()) {
+                    spdlog::critical("Property stores found! Please email lnk file to saericzimmerman@gmail.com so support can be added!!");
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x01 details
+            if (bag->type == 0x01) {
+                if (!bag->driveLetter.empty()) {
+                    spdlog::info("    Drive letter: {}", bag->driveLetter);
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // Drive letter types (0x22, 0x23, 0x2a, 0x2f) — no extra details
+            if (bag->type == 0x22 || bag->type == 0x23 || bag->type == 0x2a || bag->type == 0x2f) {
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x2E details
+            if (bag->type == 0x2e) {
+                if (!bag->propertyStore.empty()) {
+                    spdlog::info("  >> Property store (Format: GUID\\ID Description ==> Value)");
+                    for (const auto& kv : bag->propertyStore) {
+                        spdlog::info("   {} ==> {}", kv.first, kv.second);
+                    }
+                }
+                if (bag->lastAccessTime.has_value() && bag->lastAccessTime.value() != 0) {
+                    spdlog::info("    Accessed On: {}", DateTimeUtils::Format(bag->lastAccessTime.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (!bag->devicePath.empty()) {
+                    spdlog::info("    Device path: {}", bag->devicePath);
+                }
+                if (!bag->category.empty()) {
+                    spdlog::info("    Category: {}", bag->category);
+                }
+                if (!bag->extensionBlocks.empty()) {
+                    std::cout << "\n";
+                    int extNum = 0;
+                    for (const auto& eb : bag->extensionBlocks) {
+                        DumpExtensionBlockDetails(eb, extNum);
+                        extNum++;
+                    }
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x40 details
+            if (bag->type == 0x40 || bag->type == 0x41 || bag->type == 0x42 || bag->type == 0x43 ||
+                bag->type == 0x46 || bag->type == 0x47 || bag->type == 0x49 || bag->type == 0x4a || bag->type == 0x4b) {
+                if (!bag->networkDesc.empty()) {
+                    spdlog::info("    Description: {}", bag->networkDesc);
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x61 details
+            if (bag->type == 0x61) {
+                if (!bag->uri.empty()) {
+                    spdlog::info("    URI: {}", bag->uri);
+                }
+                if (bag->fileTime1.has_value() && bag->fileTime1.value() != 0) {
+                    spdlog::info("    Connect time: {}", DateTimeUtils::Format(bag->fileTime1.value(), "%Y-%m-%d %H:%M:%S"));
+                }
+                if (!bag->userName.empty()) {
+                    spdlog::info("    Username: {}", bag->userName);
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0x4C details
+            if (bag->type == 0x4c) {
+                std::cout << "\n";
+                continue;
+            }
+
+            // ShellBag0xC3 details
+            if (bag->type == 0xc3) {
+                spdlog::info("    Class type: 0x{:X}", bag->c3ClassType);
+                spdlog::info("    Flags: 0x{:X}", bag->c3Flags);
+                std::cout << "\n";
+                continue;
+            }
+
+            // Detailed output for directory/file/delegate items with extension blocks
+            bool hasDetails = (bag->type == 0x31 || bag->type == 0x32 || bag->type == 0x36 || bag->type == 0x74);
+            if (hasDetails) {
+                spdlog::info("    Short name: {}", bag->shortName.empty() ? "" : bag->shortName);
                 if (bag->lastModificationTime.has_value() && bag->lastModificationTime.value() != 0) {
                     spdlog::info("    Modified:    {}", DateTimeUtils::Format(bag->lastModificationTime.value(), "%Y-%m-%d %H:%M:%S"));
                 } else {
@@ -205,6 +400,8 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
                 }
                 std::cout << "\n";
             } else {
+                // Unmapped type
+                spdlog::warn("    UNMAPPED Type! {} ==> {}", bag->friendlyName, bag->value);
                 std::cout << "\n";
             }
         }
@@ -232,9 +429,7 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
                         spdlog::info("   MAC Vendor:  {}", vendor);
                     }
                 }
-                if (tracker->creationTime.has_value() && tracker->creationTime.value() != 0) {
-                    spdlog::info("   Creation:    {}", FormatTime(tracker->creationTime.value()));
-                }
+                spdlog::info("   Creation:    {}", tracker->creationTime.has_value() ? FormatTime(tracker->creationTime.value()) : "");
                 std::cout << "\n";
                 spdlog::info("   Volume Droid:       {}", tracker->volumeDroid);
                 spdlog::info("   Volume Droid Birth: {}", tracker->volumeDroidBirth);
@@ -288,27 +483,31 @@ static void DumpLnkToConsole(const std::shared_ptr<LnkFile>& lnk, bool nid, bool
                 }
                 std::cout << "\n";
             } else if (auto ps = std::dynamic_pointer_cast<PropertyStoreDataBlock>(eb)) {
-                spdlog::info(">> Property store data block");
                 if (ps->sheets.empty()) {
-                    spdlog::info("   (Property store not parsed)");
+                    spdlog::info(">> Property store data block");
+                    spdlog::info("   (Property store is empty)");
                 } else {
+                    spdlog::info(">> Property store data block (Format: GUID\\ID Description ==> Value)");
+                    int propCount = 0;
                     for (const auto& sheet : ps->sheets) {
-                        spdlog::info("   ---");
-                        spdlog::info("   GUID: {}", sheet.guid);
-                        std::string folderName = GetFolderNameFromGuid(sheet.guid);
-                        if (!folderName.empty()) {
-                            spdlog::info("   Folder name: {}", folderName);
-                        }
                         for (const auto& prop : sheet.properties) {
+                            propCount++;
                             const auto& key = std::get<0>(prop);
                             const auto& desc = std::get<1>(prop);
                             const auto& value = std::get<2>(prop);
-                            if (!desc.empty()) {
-                                spdlog::info("   {} ({}): {}", key, desc, value);
-                            } else {
-                                spdlog::info("   {}: {}", key, value);
+                            std::string prefix = sheet.guid + "\\" + key;
+                            prefix = prefix + std::string(43 - prefix.length(), ' ');
+                            if (prefix.length() > 43) prefix = prefix.substr(0, 43);
+                            std::string suffix = desc;
+                            if (!suffix.empty()) {
+                                suffix = suffix + std::string(35 - suffix.length(), ' ');
+                                if (suffix.length() > 35) suffix = suffix.substr(0, 35);
                             }
+                            spdlog::info("   {} {} ==> {}", prefix, suffix, value);
                         }
+                    }
+                    if (propCount == 0) {
+                        spdlog::info("   (Property store is empty)");
                     }
                 }
                 std::cout << "\n";
@@ -387,10 +586,13 @@ int main(int argc, char** argv) {
     // Setup logging
     if (debug) {
         spdlog::set_level(spdlog::level::debug);
+        spdlog::set_pattern("[%H:%M:%S.%e %l] %v%n");
     } else if (trace) {
         spdlog::set_level(spdlog::level::trace);
+        spdlog::set_pattern("[%H:%M:%S.%e %l] %v%n");
     } else {
         spdlog::set_level(spdlog::level::info);
+        spdlog::set_pattern("%v%n");
     }
 
     g_dateFormat = dt;
@@ -429,6 +631,10 @@ int main(int argc, char** argv) {
     std::string tsStr = tsSs.str();
 
     if (!filePath.empty()) {
+        if (!quiet) {
+            spdlog::info("Processing {}", filePath);
+            std::cout << "\n";
+        }
         auto start = std::chrono::steady_clock::now();
         auto lnk = LnkFile::Load(filePath, cp);
         auto end = std::chrono::steady_clock::now();
@@ -485,7 +691,12 @@ int main(int argc, char** argv) {
         spdlog::info("Found {} files", lnkFiles.size());
         std::cout << "\n";
 
+        auto dirStart = std::chrono::steady_clock::now();
         for (const auto& f : lnkFiles) {
+            if (!quiet) {
+                spdlog::info("Processing {}", f);
+                std::cout << "\n";
+            }
             auto start = std::chrono::steady_clock::now();
             auto lnk = LnkFile::Load(f, cp);
             auto end = std::chrono::steady_clock::now();
@@ -510,7 +721,12 @@ int main(int argc, char** argv) {
             }
         }
 
-        spdlog::info("Processed {} out of {} files", lnkFiles.size() - failedFiles.size(), lnkFiles.size());
+        auto dirEnd = std::chrono::steady_clock::now();
+        auto dirElapsed = std::chrono::duration_cast<std::chrono::duration<double>>(dirEnd - dirStart).count();
+        if (!quiet) {
+            std::cout << "\n";
+        }
+        spdlog::info("Processed {} out of {} files in {:.4f} seconds", lnkFiles.size() - failedFiles.size(), lnkFiles.size(), dirElapsed);
         if (!failedFiles.empty()) {
             std::cout << "\n";
             spdlog::info("Failed files");
@@ -538,7 +754,7 @@ int main(int argc, char** argv) {
         }
         std::string outName = tsStr + "_LECmd_Output.csv";
         if (!csvf.empty()) {
-            outName = csvf;
+            outName = std::filesystem::path(csvf).filename().string();
         }
         std::string outFile = (std::filesystem::path(csvDir) / outName).string();
         spdlog::info("CSV output will be saved to {}", outFile);
@@ -567,12 +783,15 @@ int main(int argc, char** argv) {
         if (!std::filesystem::exists(xmlDir)) {
             std::filesystem::create_directories(xmlDir);
         }
-        std::string outName = tsStr + "_LECmd_Output.xml";
-        std::string outFile = (std::filesystem::path(xmlDir) / outName).string();
         spdlog::info("Saving XML output to {}", xmlDir);
         XmlWriter xmlWriter;
-        if (!xmlWriter.Write(outFile, csvEntries)) {
-            spdlog::error("Failed to write XML output");
+        for (const auto& e : csvEntries) {
+            std::string baseName = std::filesystem::path(e.sourceFile).filename().string();
+            std::string outName = tsStr + "_" + baseName + ".xml";
+            std::string outFile = (std::filesystem::path(xmlDir) / outName).string();
+            if (!xmlWriter.WriteSingle(outFile, e)) {
+                spdlog::error("Failed to write XML output for {}", e.sourceFile);
+            }
         }
     }
 
@@ -581,13 +800,26 @@ int main(int argc, char** argv) {
         if (!std::filesystem::exists(htmlDir)) {
             std::filesystem::create_directories(htmlDir);
         }
-        std::string outName = tsStr + "_LECmd_Output.html";
-        std::string outFile = (std::filesystem::path(htmlDir) / outName).string();
-        spdlog::info("Saving HTML output to {}", htmlDir);
+        std::string sanitizedHtml = htmlDir;
+        for (auto& c : sanitizedHtml) {
+            if (c == ':' || c == '\\' || c == '/') c = '_';
+        }
+        std::string outDirName = tsStr + "_LECmd_Output_for_" + sanitizedHtml;
+        std::string outDir = (std::filesystem::path(htmlDir) / outDirName).string();
+        if (!std::filesystem::exists(outDir)) {
+            std::filesystem::create_directories(outDir);
+        }
+        std::string outFile = (std::filesystem::path(outDir) / "index.xhtml").string();
+        spdlog::info("Saving HTML output to {}", outFile);
         HtmlWriter htmlWriter;
         if (!htmlWriter.Write(outFile, csvEntries)) {
             spdlog::error("Failed to write HTML output");
         }
+        // Write CSS files
+        std::ofstream nf((std::filesystem::path(outDir) / "normalize.css").string());
+        if (nf.is_open()) { nf << HtmlWriter::GetNormalizeCss(); nf.close(); }
+        std::ofstream sf((std::filesystem::path(outDir) / "style.css").string());
+        if (sf.is_open()) { sf << HtmlWriter::GetStyleCss(); sf.close(); }
     }
 
     std::cout << "\n";
